@@ -1,0 +1,16 @@
+[Unit]
+Description=Duyuru Panosu Saf HTML Chromium Kiosk (Sıfır Node.js)
+After=graphical.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kiosk
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/kiosk/.Xauthority
+ExecStart=/bin/bash /opt/duyuru-kiosk-static/start-kiosk.sh
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=graphical.target
