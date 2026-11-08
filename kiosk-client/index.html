@@ -234,10 +234,33 @@
     // =========================================================================
     // 4. EKRAN RENDER MOTORU (Çoklu Şablon & Offline Oynatıcı)
     // =========================================================================
+    let currentBoardData = null;
+    let currentRenderedDay = null;
+
+    const DAYS_OF_WEEK = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+
+    function getTodayName() {
+      return DAYS_OF_WEEK[new Date().getDay()];
+    }
+
+    function getTodayRows(infoTable) {
+      if (!infoTable) return [];
+      const today = getTodayName();
+      if (infoTable.weeklySchedule && Array.isArray(infoTable.weeklySchedule[today])) {
+        return infoTable.weeklySchedule[today];
+      }
+      return infoTable.rows || [];
+    }
+
     function renderApp(data) {
       const root = document.getElementById('app');
       clearInterval(sliderInterval);
       clearInterval(noticeInterval);
+
+      if (data.components) {
+        currentBoardData = data;
+        currentRenderedDay = getTodayName();
+      }
 
       // DURUM 0: ACİL DURUM (SİREN TAHLİYE MODU)
       if (data.layoutId === 'emergency') {
@@ -317,6 +340,8 @@
         ? comp.ticker.messages.join('    •    ')
         : '';
       const tickerSpeed = (data.theme?.tickerSpeed || 25);
+      const todayName = getTodayName();
+      const todayRows = getTodayRows(comp.infoTable);
 
       root.innerHTML = `
         <div class="${layoutClass}">
@@ -347,10 +372,11 @@
               </div>
             </div>
 
+            <!-- Sağ Sütun: Günün Görevlileri (Haftalık Listeden Otomatik Gün Seçimi) -->
             <div class="bg-slate-900/90 rounded-2xl p-6 border border-slate-800 shadow-2xl flex flex-col table-card">
               <h2 class="text-2xl font-black text-amber-400 mb-4 pb-3 border-b border-slate-800 flex items-center justify-between">
-                <span>${comp.infoTable?.label || 'Güncel Bilgiler'}</span>
-                <span class="text-xs bg-amber-400/10 text-amber-300 font-mono px-3 py-1 rounded-full border border-amber-400/20">BİLGİ</span>
+                <span>${comp.infoTable?.label || 'Günün Görevlileri & İletişim'}</span>
+                <span class="text-xs bg-amber-400/10 text-amber-300 font-mono px-3 py-1 rounded-full border border-amber-400/20 font-bold uppercase tracking-wider">${todayName} GÖREVLİLERİ</span>
               </h2>
               <div class="flex-1 overflow-hidden">
                 <table class="w-full text-left">
@@ -360,11 +386,14 @@
                     </tr>
                   </thead>
                   <tbody class="text-lg">
-                    ${(comp.infoTable?.rows || []).map(row => `
-                      <tr class="border-b border-slate-800/60 hover:bg-slate-800/30 transition">
-                        ${(comp.infoTable.columns || []).map(col => `<td class="py-3.5 font-semibold text-slate-100">${row[col] || '-'}</td>`).join('')}
-                      </tr>
-                    `).join('')}
+                    ${todayRows.length > 0
+                      ? todayRows.map(row => `
+                        <tr class="border-b border-slate-800/60 hover:bg-slate-800/30 transition">
+                          ${(comp.infoTable.columns || []).map(col => `<td class="py-3.5 font-semibold text-slate-100">${row[col] || '-'}</td>`).join('')}
+                        </tr>
+                      `).join('')
+                      : `<tr><td colspan="${(comp.infoTable?.columns || []).length || 3}" class="py-12 text-center text-slate-500 font-medium">${todayName} günü için görevli listesi bulunmuyor.</td></tr>`
+                    }
                   </tbody>
                 </table>
               </div>
@@ -492,9 +521,17 @@
 
     function updateClock() {
       const clockEl = document.getElementById('live-clock');
-      if (!clockEl) return;
-      const now = new Date();
-      clockEl.innerText = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      if (clockEl) {
+        const now = new Date();
+        clockEl.innerText = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      }
+
+      // Gece 00:00 gün değişimi kontrolü: otomatik olarak yeni günün listesini yükler
+      const today = getTodayName();
+      if (currentRenderedDay && currentRenderedDay !== today && currentBoardData) {
+        currentRenderedDay = today;
+        renderApp(currentBoardData);
+      }
     }
     setInterval(updateClock, 1000);
 

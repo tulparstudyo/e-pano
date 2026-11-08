@@ -296,9 +296,44 @@
           type: 'repeater_table',
           label: 'Günün Görevlileri & İletişim',
           columns: ['Görev Yeri', 'Ad Soyad', 'Dahili'],
+          isWeekly: true,
+          weeklySchedule: {
+            'Pazartesi': [
+              { 'Görev Yeri': 'Zemin Kat Nöbetçi', 'Ad Soyad': 'Ahmet Yılmaz', 'Dahili': '101' },
+              { 'Görev Yeri': '1. Kat Nöbetçi', 'Ad Soyad': 'Ayşe Kaya', 'Dahili': '102' },
+              { 'Görev Yeri': '2. Kat Nöbetçi', 'Ad Soyad': 'Mehmet Demir', 'Dahili': '103' },
+              { 'Görev Yeri': 'Bahçe Nöbetçi', 'Ad Soyad': 'Ali Çelik', 'Dahili': '104' }
+            ],
+            'Salı': [
+              { 'Görev Yeri': 'Zemin Kat Nöbetçi', 'Ad Soyad': 'Fatma Şahin', 'Dahili': '101' },
+              { 'Görev Yeri': '1. Kat Nöbetçi', 'Ad Soyad': 'Mustafa Öztürk', 'Dahili': '102' },
+              { 'Görev Yeri': '2. Kat Nöbetçi', 'Ad Soyad': 'Zeynep Yıldız', 'Dahili': '103' },
+              { 'Görev Yeri': 'Bahçe Nöbetçi', 'Ad Soyad': 'Hasan Aydın', 'Dahili': '104' }
+            ],
+            'Çarşamba': [
+              { 'Görev Yeri': 'Zemin Kat Nöbetçi', 'Ad Soyad': 'Kemal Arslan', 'Dahili': '101' },
+              { 'Görev Yeri': '1. Kat Nöbetçi', 'Ad Soyad': 'Elif Doğan', 'Dahili': '102' },
+              { 'Görev Yeri': '2. Kat Nöbetçi', 'Ad Soyad': 'Murat Koç', 'Dahili': '103' },
+              { 'Görev Yeri': 'Bahçe Nöbetçi', 'Ad Soyad': 'Selin Polat', 'Dahili': '104' }
+            ],
+            'Perşembe': [
+              { 'Görev Yeri': 'Zemin Kat Nöbetçi', 'Ad Soyad': 'Burak Kurt', 'Dahili': '101' },
+              { 'Görev Yeri': '1. Kat Nöbetçi', 'Ad Soyad': 'Merve Özdemir', 'Dahili': '102' },
+              { 'Görev Yeri': '2. Kat Nöbetçi', 'Ad Soyad': 'Deniz Şen', 'Dahili': '103' },
+              { 'Görev Yeri': 'Bahçe Nöbetçi', 'Ad Soyad': 'Oğuzhan Çetin', 'Dahili': '104' }
+            ],
+            'Cuma': [
+              { 'Görev Yeri': 'Zemin Kat Nöbetçi', 'Ad Soyad': 'Sevgi Yurt', 'Dahili': '101' },
+              { 'Görev Yeri': '1. Kat Nöbetçi', 'Ad Soyad': 'Emre Tekin', 'Dahili': '102' },
+              { 'Görev Yeri': '2. Kat Nöbetçi', 'Ad Soyad': 'Tuğba Bulut', 'Dahili': '103' },
+              { 'Görev Yeri': 'Bahçe Nöbetçi', 'Ad Soyad': 'Cem Aksoy', 'Dahili': '104' }
+            ],
+            'Cumartesi': [],
+            'Pazar': []
+          },
           rows: [
-            { 'Görev Yeri': 'Zemin Kat', 'Ad Soyad': 'Ahmet Yılmaz', 'Dahili': '101' },
-            { 'Görev Yeri': '1. Kat', 'Ad Soyad': 'Ayşe Kaya', 'Dahili': '102' }
+            { 'Görev Yeri': 'Zemin Kat Nöbetçi', 'Ad Soyad': 'Ahmet Yılmaz', 'Dahili': '101' },
+            { 'Görev Yeri': '1. Kat Nöbetçi', 'Ad Soyad': 'Ayşe Kaya', 'Dahili': '102' }
           ]
         },
         ticker: {
@@ -312,9 +347,40 @@
       }
     };
 
+    const DAYS_OF_WEEK = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
+
+    function getTodayName() {
+      const map = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+      return map[new Date().getDay()];
+    }
+
+    function ensureWeeklySchedule(infoTable) {
+      if (!infoTable) return;
+      if (!infoTable.weeklySchedule) {
+        infoTable.weeklySchedule = {};
+        DAYS_OF_WEEK.forEach(day => {
+          if (['Cumartesi', 'Pazar'].includes(day)) {
+            infoTable.weeklySchedule[day] = [];
+          } else {
+            infoTable.weeklySchedule[day] = JSON.parse(JSON.stringify(infoTable.rows || []));
+          }
+        });
+      }
+      DAYS_OF_WEEK.forEach(day => {
+        if (!infoTable.weeklySchedule[day]) {
+          infoTable.weeklySchedule[day] = [];
+        }
+      });
+    }
+
+    let activeEditingDay = getTodayName();
+
     let boardData = JSON.parse(localStorage.getItem('draft_board_data') || JSON.stringify(defaultBoardData));
     if (!boardData.components.noticeBox) {
       boardData.components.noticeBox = defaultBoardData.components.noticeBox;
+    }
+    if (boardData.components.infoTable) {
+      ensureWeeklySchedule(boardData.components.infoTable);
     }
 
     function saveBoardData() {
@@ -621,20 +687,32 @@
         }
       }
 
-      // Tablo Alanı
-      document.getElementById('canvas-table-title').innerText = comp.infoTable?.label || 'Güncel Bilgiler';
+      // Tablo Alanı (Haftalık Plan - Bugünün Listesi)
+      const today = getTodayName();
+      ensureWeeklySchedule(comp.infoTable);
+      const todayRows = (comp.infoTable?.weeklySchedule && comp.infoTable.weeklySchedule[today])
+        ? comp.infoTable.weeklySchedule[today]
+        : (comp.infoTable?.rows || []);
+
+      document.getElementById('canvas-table-title').innerHTML = `
+        <span class="truncate">${comp.infoTable?.label || 'Günün Görevlileri & İletişim'}</span>
+        <span class="text-[10px] bg-amber-400/20 text-amber-300 font-mono px-2 py-0.5 rounded border border-amber-400/30 uppercase font-bold">${today}</span>
+      `;
       const tableContent = document.getElementById('canvas-table-content');
       const cols = comp.infoTable?.columns || [];
-      const rows = comp.infoTable?.rows || [];
 
       let tableHtml = '<table class="w-full text-left"><thead><tr class="text-slate-400 border-b border-slate-800">';
       cols.forEach(c => tableHtml += `<th class="pb-1 font-semibold">${c}</th>`);
       tableHtml += '</tr></thead><tbody>';
-      rows.slice(0, 5).forEach(r => {
-        tableHtml += '<tr class="border-b border-slate-800/60">';
-        cols.forEach(c => tableHtml += `<td class="py-1.5 text-slate-200 truncate max-w-[120px]">${r[c] || '-'}</td>`);
-        tableHtml += '</tr>';
-      });
+      if (todayRows.length > 0) {
+        todayRows.slice(0, 5).forEach(r => {
+          tableHtml += '<tr class="border-b border-slate-800/60">';
+          cols.forEach(c => tableHtml += `<td class="py-1.5 text-slate-200 truncate max-w-[120px]">${r[c] || '-'}</td>`);
+          tableHtml += '</tr>';
+        });
+      } else {
+        tableHtml += `<tr><td colspan="${cols.length || 3}" class="py-4 text-center text-slate-500 italic text-[11px]">${today} günü için görevli listesi boş</td></tr>`;
+      }
       tableHtml += '</tbody></table>';
       tableContent.innerHTML = tableHtml;
 
@@ -655,6 +733,10 @@
     function openEditor(key) {
       activeEditingKey = key;
       editingDataDraft = JSON.parse(JSON.stringify(boardData.components[key] || {}));
+      if (key === 'infoTable') {
+        ensureWeeklySchedule(editingDataDraft);
+        activeEditingDay = getTodayName();
+      }
       document.getElementById('editor-component-key').innerText = key;
       renderEditorControls();
       document.getElementById('editor-modal').classList.remove('hidden');
@@ -706,34 +788,102 @@
         document.getElementById('media-file-input').onchange = handleMediaUpload;
         renderMediaGrid();
       } else if (data.type === 'repeater_table') {
+        ensureWeeklySchedule(data);
+        if (!activeEditingDay) activeEditingDay = getTodayName();
+
         area.innerHTML = `
-          <div class="space-y-3">
+          <div class="space-y-3.5">
             <div class="flex items-center justify-between">
-              <div>
-                <label class="block text-xs font-semibold text-slate-300">Tablo Başlığı</label>
-                <input type="text" id="edit-table-label" value="${data.label || ''}" class="p-1 bg-slate-800 border border-slate-700 rounded text-slate-100 text-xs w-60">
+              <div class="flex-1 mr-3">
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Tablo Başlığı</label>
+                <input type="text" id="edit-table-label" value="${data.label || ''}" class="p-1.5 bg-slate-800 border border-slate-700 rounded text-slate-100 text-xs w-full focus:border-blue-500 outline-none">
               </div>
-              <button id="add-table-row-btn" class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-semibold">+ Yeni Satır</button>
+              <div class="flex items-center gap-2 pt-5">
+                <button id="copy-to-weekdays-btn" type="button" title="${activeEditingDay} gününün görevlilerini diğer tüm hafta içi günlerine (Pzt-Cum) kopyalar" class="px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded text-xs font-semibold flex items-center gap-1 transition">
+                  📋 Hafta İçine Kopyala
+                </button>
+                <button id="add-table-row-btn" type="button" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-semibold shadow transition">
+                  + Yeni Satır
+                </button>
+              </div>
             </div>
-            <div class="max-h-56 overflow-y-auto border border-slate-700 rounded bg-slate-900 custom-scroll">
+
+            <!-- Gün Sekmeleri -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Haftalık Görev Planı (Gün Seçiniz):</label>
+                <span class="text-[11px] text-blue-400 font-medium">Aktif Gün: <b class="text-white">${activeEditingDay}</b></span>
+              </div>
+              <div id="weekly-day-tabs" class="grid grid-cols-7 gap-1 bg-slate-950 p-1.5 rounded-lg border border-slate-800">
+                ${DAYS_OF_WEEK.map(day => {
+                  const count = (data.weeklySchedule[day] || []).length;
+                  const isActive = day === activeEditingDay;
+                  return `
+                    <button type="button" data-day="${day}" class="day-tab-btn py-1.5 px-1 rounded text-center transition flex flex-col items-center justify-center ${isActive ? 'bg-blue-600 text-white font-bold shadow' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-200 font-medium'}">
+                      <span class="text-xs">${day.slice(0, 3)}</span>
+                      <span class="text-[10px] font-mono opacity-80 count-badge">(${count})</span>
+                    </button>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+
+            <!-- Seçili Günün Görevli Tablosu -->
+            <div class="max-h-60 overflow-y-auto border border-slate-700 rounded-lg bg-slate-900 custom-scroll">
               <table class="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr class="bg-slate-800 text-slate-300 border-b border-slate-700">
-                    ${(data.columns || []).map(c => `<th class="p-2 font-semibold">${c}</th>`).join('')}
-                    <th class="p-2 text-center w-10">Sil</th>
+                  <tr class="bg-slate-800 text-slate-300 border-b border-slate-700 sticky top-0 z-10">
+                    ${(data.columns || []).map(c => `<th class="p-2 font-bold">${c}</th>`).join('')}
+                    <th class="p-2 text-center w-12">Sil</th>
                   </tr>
                 </thead>
                 <tbody id="table-rows-body"></tbody>
               </table>
             </div>
+            <div class="flex items-center justify-between text-[11px] text-slate-400">
+              <span>💡 Kiosk ekranı o güne ait görevli listesini otomatik gösterir.</span>
+              <span>Gece 00:00'da gün değişimi otomatik algılanır.</span>
+            </div>
           </div>
         `;
+
         document.getElementById('edit-table-label').oninput = (e) => data.label = e.target.value;
-        document.getElementById('add-table-row-btn').onclick = () => {
-          const newRow = (data.columns || []).reduce((acc, c) => ({ ...acc, [c]: '' }), {});
-          data.rows.push(newRow);
-          renderTableRows();
+
+        // Sekme Değişimi
+        document.querySelectorAll('#weekly-day-tabs .day-tab-btn').forEach(btn => {
+          btn.onclick = () => {
+            activeEditingDay = btn.dataset.day;
+            renderEditorControls();
+          };
+        });
+
+        // Hafta İçine Kopyalama
+        document.getElementById('copy-to-weekdays-btn').onclick = () => {
+          const currentList = data.weeklySchedule[activeEditingDay] || [];
+          if (currentList.length === 0) {
+            alert(`${activeEditingDay} için kopyalanacak satır bulunmuyor.`);
+            return;
+          }
+          if (confirm(`${activeEditingDay} gününe ait ${currentList.length} satırı diğer tüm hafta içi günlerine (Pazartesi-Cuma) kopyalamak istiyor musunuz?`)) {
+            ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma'].forEach(d => {
+              if (d !== activeEditingDay) {
+                data.weeklySchedule[d] = JSON.parse(JSON.stringify(currentList));
+              }
+            });
+            renderEditorControls();
+          }
         };
+
+        // Yeni Satır Ekleme
+        document.getElementById('add-table-row-btn').onclick = () => {
+          const currentList = data.weeklySchedule[activeEditingDay] || [];
+          const newRow = (data.columns || []).reduce((acc, c) => ({ ...acc, [c]: '' }), {});
+          currentList.push(newRow);
+          data.weeklySchedule[activeEditingDay] = currentList;
+          renderTableRows();
+          updateTabCounts();
+        };
+
         renderTableRows();
       } else if (data.type === 'ticker') {
         area.innerHTML = `
@@ -853,25 +1003,54 @@
       if (!tbody) return;
       tbody.innerHTML = '';
       const data = editingDataDraft;
+      ensureWeeklySchedule(data);
+      const rows = data.weeklySchedule[activeEditingDay] || [];
 
-      (data.rows || []).forEach((row, rIdx) => {
+      if (rows.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="${(data.columns || []).length + 1}" class="py-6 text-center text-slate-500 italic">
+              ${activeEditingDay} günü için henüz görevli satırı eklenmemiş.<br>
+              Yukarıdaki <b>"+ Yeni Satır"</b> butonuna tıklayarak ekleyebilirsiniz.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      rows.forEach((row, rIdx) => {
         const tr = document.createElement('tr');
-        tr.className = 'border-b border-slate-800/80';
+        tr.className = 'border-b border-slate-800/80 hover:bg-slate-800/30 transition';
         let cellsHtml = '';
         (data.columns || []).forEach((c) => {
-          cellsHtml += `<td class="p-1"><input type="text" value="${row[c] || ''}" data-col="${c}" class="table-cell-input w-full p-1 bg-slate-950 border border-slate-800 rounded text-slate-200 text-xs"></td>`;
+          cellsHtml += `<td class="p-1.5"><input type="text" value="${row[c] || ''}" data-col="${c}" placeholder="${c}..." class="table-cell-input w-full p-1.5 bg-slate-950 border border-slate-800 rounded text-slate-200 text-xs focus:border-blue-500 outline-none"></td>`;
         });
-        cellsHtml += `<td class="p-1 text-center"><button class="text-rose-400 font-bold px-1 remove-row-btn">✕</button></td>`;
+        cellsHtml += `<td class="p-1.5 text-center"><button type="button" class="text-rose-400 hover:text-rose-300 font-bold px-2 py-1 rounded hover:bg-rose-950/40 remove-row-btn transition">✕</button></td>`;
         tr.innerHTML = cellsHtml;
 
         tr.querySelectorAll('.table-cell-input').forEach((input) => {
-          input.oninput = (e) => { row[e.target.dataset.col] = e.target.value; };
+          input.oninput = (e) => {
+            row[e.target.dataset.col] = e.target.value;
+          };
         });
         tr.querySelector('.remove-row-btn').onclick = () => {
-          data.rows.splice(rIdx, 1);
+          rows.splice(rIdx, 1);
           renderTableRows();
+          updateTabCounts();
         };
         tbody.appendChild(tr);
+      });
+    }
+
+    function updateTabCounts() {
+      const data = editingDataDraft;
+      if (!data || !data.weeklySchedule) return;
+      document.querySelectorAll('#weekly-day-tabs .day-tab-btn').forEach(btn => {
+        const d = btn.dataset.day;
+        const countSpan = btn.querySelector('.count-badge');
+        if (countSpan && d) {
+          countSpan.innerText = `(${(data.weeklySchedule[d] || []).length})`;
+        }
       });
     }
 
@@ -913,6 +1092,11 @@
 
     document.getElementById('apply-editor-btn').onclick = () => {
       if (activeEditingKey && editingDataDraft) {
+        if (activeEditingKey === 'infoTable') {
+          ensureWeeklySchedule(editingDataDraft);
+          const today = getTodayName();
+          editingDataDraft.rows = editingDataDraft.weeklySchedule[today] || [];
+        }
         boardData.components[activeEditingKey] = editingDataDraft;
         saveBoardData();
         closeEditorModal();
