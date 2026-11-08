@@ -39,12 +39,6 @@
         <p class="text-xs text-slate-400 mt-1">Node.js gerektirmeyen taşınabilir yönetim konsolu</p>
       </div>
 
-      <!-- Sunucu Adresi Girişi -->
-      <div class="mb-4 bg-slate-950 p-2.5 rounded-lg border border-slate-800">
-        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Bağlantı Sunucusu</label>
-        <input type="text" id="server-url-input" value="https://pano.teknovip.net" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-blue-300 font-mono focus:outline-none focus:border-blue-500">
-      </div>
-
       <!-- Giriş / Kayıt Sekmeleri -->
       <div class="flex border-b border-slate-800 mb-6 text-sm font-semibold">
         <button id="tab-login-btn" class="flex-1 pb-2 border-b-2 border-blue-500 text-blue-400">Giriş Yap</button>
@@ -252,9 +246,8 @@
        ========================================================================= -->
   <script>
     // --- Global State ---
-    let serverHttpUrl = localStorage.getItem('server_http_url') || 'https://pano.teknovip.net';
-    let serverWsUrl = serverHttpUrl.replace(/^http/, 'ws');
-    document.getElementById('server-url-input').value = serverHttpUrl;
+    const serverHttpUrl = 'https://pano.teknovip.net';
+    const serverWsUrl = 'wss://pano.teknovip.net';
 
     let token = localStorage.getItem('pano_jwt_token') || null;
     let user = JSON.parse(localStorage.getItem('pano_user') || 'null');
@@ -336,12 +329,6 @@
       document.getElementById('register-inst-group').classList.remove('hidden');
       document.getElementById('auth-submit-btn').innerText = 'Kurumu Kaydet ve Başla';
       document.getElementById('auth-error').classList.add('hidden');
-    };
-
-    document.getElementById('server-url-input').onchange = (e) => {
-      serverHttpUrl = e.target.value.trim().replace(/\/$/, '');
-      serverWsUrl = serverHttpUrl.replace(/^http/, 'ws');
-      localStorage.setItem('server_http_url', serverHttpUrl);
     };
 
     document.getElementById('auth-form').onsubmit = async (e) => {
