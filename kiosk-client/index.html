@@ -43,6 +43,10 @@
     .siren-bg {
       animation: siren-flash 1s infinite ease-in-out;
     }
+    #notice-content-area p {
+      font-size: 24px;
+      line-height: 1.4;
+    }
   </style>
 </head>
 <body class="w-screen h-screen">
@@ -409,8 +413,8 @@
 
         setTimeout(() => {
           container.innerHTML = `
-            <h4 class="text-xl font-black text-amber-300 mb-1.5 truncate drop-shadow">${item.title || ''}</h4>
-            <p class="text-base text-slate-200 font-medium line-clamp-3 leading-relaxed">${item.content || ''}</p>
+            ${item.title ? `<h4 class="text-xl font-black text-amber-300 mb-1.5 truncate drop-shadow">${item.title}</h4>` : ''}
+            <p class="text-[24px] text-slate-100 font-medium leading-relaxed" style="font-size: 24px; line-height: 1.4;">${item.content || ''}</p>
           `;
           if (counter) {
             counter.innerText = `${currentNoticeIdx + 1}/${items.length}`;
