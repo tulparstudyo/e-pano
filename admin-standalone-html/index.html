@@ -159,12 +159,27 @@
 
         <!-- Ana Gövde -->
         <div id="canvas-main-area" class="flex-1 p-3 gap-3 overflow-hidden grid grid-cols-[60%_40%]">
-          <!-- Sol: Medya Slider Alanı -->
-          <div id="canvas-slider-area" class="bg-slate-900 rounded-lg border-2 border-dashed border-slate-700 hover:border-blue-400 cursor-pointer flex flex-col items-center justify-center relative p-2 transition group overflow-hidden">
-            <div id="canvas-slider-preview" class="w-full h-full flex flex-col items-center justify-center"></div>
-            <span class="absolute bottom-2 right-2 text-[10px] bg-slate-800 text-blue-400 px-2 py-0.5 rounded border border-slate-700">
-              Slider Alanı
-            </span>
+          <!-- Sol Sütun: Üst Medya Slider (2/3) + Alt Sabit Duyuru Alanı (1/3) -->
+          <div class="flex flex-col gap-2.5 h-full overflow-hidden">
+            <!-- Sol Üst: Medya Slider Alanı (2/3 Yükseklik) -->
+            <div id="canvas-slider-area" class="h-[65%] bg-slate-900 rounded-lg border-2 border-dashed border-slate-700 hover:border-blue-400 cursor-pointer flex flex-col items-center justify-center relative p-2 transition group overflow-hidden">
+              <div id="canvas-slider-preview" class="w-full h-full flex flex-col items-center justify-center"></div>
+              <span class="absolute bottom-1.5 right-1.5 text-[9px] bg-slate-800 text-blue-400 px-1.5 py-0.5 rounded border border-slate-700">
+                Slider Alanı (2/3)
+              </span>
+            </div>
+
+            <!-- Sol Alt: Sabit Duyuru Alanı (1/3 Yükseklik) -->
+            <div id="canvas-notice-area" class="h-[35%] bg-slate-900 rounded-lg border-2 border-dashed border-slate-700 hover:border-blue-400 cursor-pointer flex flex-col p-2.5 relative transition group overflow-hidden">
+              <div class="flex items-center justify-between pb-1 mb-1 border-b border-slate-800 shrink-0">
+                <span id="canvas-notice-title" class="text-xs font-bold text-amber-400 uppercase tracking-wide">Önemli Duyurular</span>
+                <span class="text-[9px] text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded">Duyuru Kutusu (4-5s)</span>
+              </div>
+              <div id="canvas-notice-preview" class="flex-1 flex flex-col justify-center overflow-hidden text-xs"></div>
+              <span class="absolute bottom-1.5 right-1.5 text-[9px] bg-slate-800 text-blue-400 px-1.5 py-0.5 rounded border border-slate-700 opacity-60 group-hover:opacity-100">
+                Tıkla: Düzenle
+              </span>
+            </div>
           </div>
 
           <!-- Sağ: Tablo Alanı -->
@@ -270,6 +285,16 @@
       components: {
         title: { type: 'text', label: 'Ana Başlık / Kurum Adı', value: 'TEKNOVİP DİJİTAL DUYURU MERKEZİ' },
         slider: { type: 'media_slider', label: 'Görsel & Video Duyurular', durationSec: 8, items: [] },
+        noticeBox: {
+          type: 'notice_slider',
+          label: 'Önemli Duyurular & Bilgilendirme',
+          durationSec: 5,
+          items: [
+            { title: 'TÜBİTAK 4006 Bilim Fuarı', content: 'Projelerinizin son teslim tarihi bu Cuma günüdür. Rehber öğretmeninizle görüşünüz.' },
+            { title: 'Kütüphane Etüt Saatleri', content: 'Kütüphanemiz hafta içi her gün 08:30 - 17:00 saatleri arasında tüm öğrencilere açıktır.' },
+            { title: 'Haftanın Sözü', content: '"Eğitimdir ki bir milleti ya özgür, bağımsız kılar; ya da esaret ve sefalete terk eder." - Atatürk' }
+          ]
+        },
         infoTable: {
           type: 'repeater_table',
           label: 'Günün Görevlileri & İletişim',
@@ -291,6 +316,9 @@
     };
 
     let boardData = JSON.parse(localStorage.getItem('draft_board_data') || JSON.stringify(defaultBoardData));
+    if (!boardData.components.noticeBox) {
+      boardData.components.noticeBox = defaultBoardData.components.noticeBox;
+    }
 
     function saveBoardData() {
       localStorage.setItem('draft_board_data', JSON.stringify(boardData));
@@ -580,6 +608,24 @@
         sliderPreview.innerHTML = '<span class="text-3xl block mb-1">🖼</span><span class="text-xs text-slate-500 font-semibold">+ Medya Eklemek İçin Tıklayın</span>';
       }
 
+      // Sabit Duyuru Alanı Önizlemesi
+      const noticeTitle = document.getElementById('canvas-notice-title');
+      const noticePreview = document.getElementById('canvas-notice-preview');
+      if (noticeTitle && noticePreview) {
+        noticeTitle.innerText = comp.noticeBox?.label || 'Önemli Duyurular';
+        const noticeItems = comp.noticeBox?.items || [];
+        if (noticeItems.length > 0) {
+          const first = noticeItems[0];
+          noticePreview.innerHTML = `
+            <div class="font-bold text-amber-300 truncate">${first.title || ''}</div>
+            <div class="text-[11px] text-slate-300 line-clamp-2 mt-0.5 leading-snug">${first.content || ''}</div>
+            <div class="text-[9px] text-slate-500 mt-1 font-mono">${noticeItems.length} Duyuru • Her ${comp.noticeBox.durationSec || 5} sn geçiş</div>
+          `;
+        } else {
+          noticePreview.innerHTML = '<span class="text-slate-500 italic">+ Duyuru Eklemek İçin Tıklayın</span>';
+        }
+      }
+
       // Tablo Alanı
       document.getElementById('canvas-table-title').innerText = comp.infoTable?.label || 'Güncel Bilgiler';
       const tableContent = document.getElementById('canvas-table-content');
@@ -605,6 +651,8 @@
     // --- WYSIWYG Tıkla-Düzenle Tetikleyicileri ---
     document.getElementById('canvas-title-area').onclick = () => openEditor('title');
     document.getElementById('canvas-slider-area').onclick = () => openEditor('slider');
+    const noticeArea = document.getElementById('canvas-notice-area');
+    if (noticeArea) noticeArea.onclick = () => openEditor('noticeBox');
     document.getElementById('canvas-table-area').onclick = () => openEditor('infoTable');
     document.getElementById('canvas-ticker-area').onclick = () => openEditor('ticker');
 
@@ -705,7 +753,63 @@
         document.getElementById('add-ticker-btn').onclick = addTickerItem;
         document.getElementById('new-ticker-input').onkeydown = (e) => { if (e.key === 'Enter') addTickerItem(); };
         renderTickerList();
+      } else if (data.type === 'notice_slider') {
+        area.innerHTML = `
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <div>
+                <label class="block text-xs font-semibold text-slate-300">Duyuru Alanı Başlığı</label>
+                <input type="text" id="edit-notice-label" value="${data.label || ''}" class="p-1 bg-slate-800 border border-slate-700 rounded text-slate-100 text-xs w-56">
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-slate-400">Geçiş:</span>
+                <input type="number" min="2" max="30" id="edit-notice-duration" value="${data.durationSec || 5}" class="w-14 p-1 bg-slate-900 border border-slate-700 rounded text-center text-xs text-slate-200">
+                <span class="text-xs text-slate-400">sn</span>
+                <button id="add-notice-item-btn" class="ml-2 px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-semibold">+ Yeni Duyuru</button>
+              </div>
+            </div>
+
+            <div id="notice-items-editor-list" class="space-y-2 max-h-60 overflow-y-auto custom-scroll pr-1"></div>
+          </div>
+        `;
+
+        document.getElementById('edit-notice-label').oninput = (e) => data.label = e.target.value;
+        document.getElementById('edit-notice-duration').oninput = (e) => data.durationSec = Number(e.target.value);
+        document.getElementById('add-notice-item-btn').onclick = () => {
+          data.items = data.items || [];
+          data.items.push({ title: 'Yeni Duyuru Başlığı', content: 'Duyuru metni buraya yazılacaktır.' });
+          renderNoticeEditorItems();
+        };
+        renderNoticeEditorItems();
       }
+    }
+
+    function renderNoticeEditorItems() {
+      const list = document.getElementById('notice-items-editor-list');
+      if (!list) return;
+      list.innerHTML = '';
+      const data = editingDataDraft;
+
+      (data.items || []).forEach((item, idx) => {
+        const itemCard = document.createElement('div');
+        itemCard.className = 'p-3 bg-slate-800/80 rounded-lg border border-slate-700 space-y-2 relative';
+        itemCard.innerHTML = `
+          <div class="flex items-center justify-between">
+            <input type="text" value="${item.title || ''}" placeholder="Duyuru Başlığı" class="notice-item-title p-1 bg-slate-950 border border-slate-700 rounded text-amber-300 font-bold text-xs flex-1 mr-2">
+            <button class="remove-notice-btn text-rose-400 hover:text-rose-300 font-bold text-sm">✕</button>
+          </div>
+          <textarea placeholder="Duyuru açıklaması..." class="notice-item-content w-full h-14 p-1.5 bg-slate-950 border border-slate-700 rounded text-slate-200 text-xs resize-none">${item.content || ''}</textarea>
+        `;
+
+        itemCard.querySelector('.notice-item-title').oninput = (e) => item.title = e.target.value;
+        itemCard.querySelector('.notice-item-content').oninput = (e) => item.content = e.target.value;
+        itemCard.querySelector('.remove-notice-btn').onclick = () => {
+          data.items.splice(idx, 1);
+          renderNoticeEditorItems();
+        };
+
+        list.appendChild(itemCard);
+      });
     }
 
     function renderMediaGrid() {

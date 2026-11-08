@@ -51,7 +51,9 @@
   <script>
     let activeStateHash = null;
     let sliderInterval = null;
+    let noticeInterval = null;
     let currentSlideIdx = 0;
+    let currentNoticeIdx = 0;
 
     async function pollState() {
       try {
@@ -71,6 +73,7 @@
     function renderApp(data) {
       const root = document.getElementById('app');
       clearInterval(sliderInterval);
+      clearInterval(noticeInterval);
 
       // DURUM 0: ACİL DURUM / SİREN TAHLİYE MODU (Kırmızı Tam Ekran)
       if (data.layoutId === 'emergency') {
@@ -164,10 +167,25 @@
 
           <!-- Ana Gövde (Şablona Göre Bölünmüş Viewport) -->
           <main class="main-viewport">
-            <!-- Sol / Ana Medya Slider Kartı -->
-            <div class="bg-slate-900/90 rounded-2xl overflow-hidden border border-slate-800 shadow-2xl relative flex items-center justify-center">
-              <div id="media-viewport" class="w-full h-full flex items-center justify-center overflow-hidden">
-                <span class="text-slate-600 text-lg">Yüklü Medya Bulunmuyor</span>
+            <!-- Sol Sütun: Üst Medya Slider (2/3) + Alt Sabit Duyuru Alanı (1/3) -->
+            <div class="flex flex-col gap-4 overflow-hidden h-full">
+              <!-- 1. Üst Medya Slider (2/3 Yükseklik) -->
+              <div class="h-[65%] bg-slate-900/90 rounded-2xl overflow-hidden border border-slate-800 shadow-2xl relative flex items-center justify-center">
+                <div id="media-viewport" class="w-full h-full flex items-center justify-center overflow-hidden">
+                  <span class="text-slate-600 text-lg">Yüklü Medya Bulunmuyor</span>
+                </div>
+              </div>
+
+              <!-- 2. Alt Sabit Duyuru Alanı (1/3 Yükseklik - Efektli Geçişli) -->
+              <div class="h-[35%] bg-slate-900/90 rounded-2xl p-5 border border-slate-800 shadow-2xl flex flex-col relative overflow-hidden">
+                <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800 shrink-0">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
+                    <h3 class="text-base font-black text-amber-400 uppercase tracking-wide" id="notice-label">${comp.noticeBox?.label || 'Önemli Duyurular'}</h3>
+                  </div>
+                  <span id="notice-counter" class="text-xs bg-slate-800 text-amber-300 px-2 py-0.5 rounded font-mono border border-slate-700">1/1</span>
+                </div>
+                <div id="notice-content-area" class="flex-1 flex flex-col justify-center overflow-hidden transition-all duration-500 ease-in-out transform"></div>
               </div>
             </div>
 
@@ -209,6 +227,52 @@
 
       updateClock();
       startMediaSlider(comp.slider);
+      startNoticeSlider(comp.noticeBox);
+    }
+
+    function startNoticeSlider(noticeBox) {
+      const container = document.getElementById('notice-content-area');
+      const counter = document.getElementById('notice-counter');
+      if (!container) return;
+
+      const items = noticeBox?.items && noticeBox.items.length > 0
+        ? noticeBox.items
+        : [
+            {
+              title: 'Günün Duyurusu',
+              content: 'Önemli duyuru ve bilgilendirmeler bu alanda otomatik ve efektli geçişle yayınlanır.'
+            }
+          ];
+
+      currentNoticeIdx = 0;
+
+      function displayNotice() {
+        const item = items[currentNoticeIdx];
+        if (!item) return;
+
+        container.style.opacity = '0';
+        container.style.transform = 'translateY(-6px)';
+
+        setTimeout(() => {
+          container.innerHTML = `
+            <h4 class="text-xl font-black text-amber-300 mb-1.5 truncate drop-shadow">${item.title || ''}</h4>
+            <p class="text-base text-slate-200 font-medium line-clamp-3 leading-relaxed">${item.content || ''}</p>
+          `;
+          if (counter) {
+            counter.innerText = `${currentNoticeIdx + 1}/${items.length}`;
+          }
+
+          container.style.opacity = '1';
+          container.style.transform = 'translateY(0)';
+        }, 220);
+
+        currentNoticeIdx = (currentNoticeIdx + 1) % items.length;
+      }
+
+      displayNotice();
+      if (items.length > 1) {
+        noticeInterval = setInterval(displayNotice, (noticeBox.durationSec || 5) * 1000);
+      }
     }
 
     function startMediaSlider(slider) {
