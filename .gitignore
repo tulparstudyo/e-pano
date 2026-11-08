@@ -1,0 +1,26 @@
+# Bağımlılıklar
+node_modules/
+package-lock.json
+
+# Derleme Çıktıları
+dist/
+build/
+.cache/
+
+# Ortam Değişkenleri ve Gizli Anahtarlar
+.env
+.env.local
+
+# Çalışma Zamanı Veritabanı ve Yüklemeler
+data/*.db
+data/*.db-wal
+data/*.db-shm
+uploads/*
+!uploads/.gitkeep
+
+# İşletim Sistemi ve Editör Dosyaları
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
