@@ -63,7 +63,7 @@ app.use('/media', express.static(MEDIA_DIR));
 app.use(express.static(PUBLIC_DIR));
 
 app.get('/api/current-data', (_req, res) => {
-  // Eğer Acil Durum / Siren modu aktifse öncelikli olarak onu ilet
+  // 1. Eğer Acil Durum / Siren modu aktifse öncelikli olarak onu ilet
   if (emergencyState && emergencyState.active) {
     return res.json({
       layoutId: 'emergency',
@@ -72,6 +72,16 @@ app.get('/api/current-data', (_req, res) => {
     });
   }
 
+  // 2. Cihaz henüz eşleşmemişse veya sunucu yeni PIN vermişse Eşleştirme (PIN/QR) ekranını göster
+  if (!config.token || currentPin) {
+    return res.json({
+      layoutId: 'pairing',
+      pin: currentPin,
+      deviceId
+    });
+  }
+
+  // 3. Cihaz eşleşmişse ve yerel önbellekte içerik varsa onu göster
   if (fs.existsSync(DATA_FILE)) {
     try {
       const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
@@ -206,6 +216,8 @@ function connectSocket() {
 
       if (msg.type === 'PIN_GENERATED') {
         currentPin = msg.pin;
+        config.token = null;
+        console.log(`[Relay WS] Eşleşme PIN Kodu Alındı: ${currentPin} (Admin Studio'ya bu PIN'i girin)`);
       } else if (msg.type === 'PAIRED_SUCCESS') {
         config.token = msg.pairingToken;
         safeWriteJsonSync(CONFIG_FILE, config);
