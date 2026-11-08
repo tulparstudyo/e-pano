@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  relay-hub:
+    build:
+      context: ./relay-server
+      dockerfile: Dockerfile
+    container_name: epano-relay-hub
+    restart: always
+    environment:
+      - PORT=8080
+      - NODE_ENV=production
+    volumes:
+      - media_storage:/app/uploads
+    networks:
+      - pano-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: epano-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+      - media_storage:/var/www/uploads:ro
+    depends_on:
+      - relay-hub
+    networks:
+      - pano-network
+
+volumes:
+  media_storage:
+
+networks:
+  pano-network:
+    driver: bridge

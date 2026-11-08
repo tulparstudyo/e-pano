@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BoardPayload",
+  "type": "object",
+  "required": ["version", "layoutId", "theme", "components"],
+  "properties": {
+    "version": { "type": "string", "default": "1.0.0" },
+    "layoutId": { 
+      "type": "string", 
+      "enum": ["layout-classic-school", "layout-hospital-triaj", "layout-corporate-grid"] 
+    },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "theme": {
+      "type": "object",
+      "properties": {
+        "primaryColor": { "type": "string", "default": "#1e3a8a" },
+        "fontFamily": { "type": "string", "default": "Inter" },
+        "tickerSpeed": { "type": "number", "default": 25 }
+      }
+    },
+    "components": {
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [
+          { "$ref": "#/definitions/TextComponent" },
+          { "$ref": "#/definitions/MediaComponent" },
+          { "$ref": "#/definitions/RepeaterComponent" },
+          { "$ref": "#/definitions/TickerComponent" }
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "TextComponent": {
+      "type": "object",
+      "required": ["type", "value"],
+      "properties": {
+        "type": { "type": "string", "enum": ["text", "richtext"] },
+        "label": { "type": "string" },
+        "value": { "type": "string" }
+      }
+    },
+    "MediaComponent": {
+      "type": "object",
+      "required": ["type", "items"],
+      "properties": {
+        "type": { "type": "string", "const": "media_slider" },
+        "label": { "type": "string" },
+        "durationSec": { "type": "number", "default": 8 },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "url", "mediaType"],
+            "properties": {
+              "id": { "type": "string" },
+              "url": { "type": "string" },
+              "mediaType": { "type": "string", "enum": ["image", "video"] },
+              "hash": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "RepeaterComponent": {
+      "type": "object",
+      "required": ["type", "columns", "rows"],
+      "properties": {
+        "type": { "type": "string", "const": "repeater_table" },
+        "label": { "type": "string" },
+        "columns": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          }
+        }
+      }
+    },
+    "TickerComponent": {
+      "type": "object",
+      "required": ["type", "messages"],
+      "properties": {
+        "type": { "type": "string", "const": "ticker" },
+        "label": { "type": "string" },
+        "messages": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}
