@@ -1,32 +1,51 @@
 # ==============================================================================
-# e-Pano Relay Hub - Production Dockerfile (aaPanel Uyumlu Kök Dizin Dockerfile)
+# e-Pano Relay Hub - Production Dockerfile (Debian Slim Tabanlı, Hızlı & Garantili)
 # ==============================================================================
-FROM node:20-alpine AS builder
+FROM node:20-bookworm-slim AS builder
 
 WORKDIR /app
 
-# Relay Server bağımlılıklarını kopyala ve derle
-COPY relay-server/package*.json relay-server/tsconfig.json ./
-RUN npm ci
+# Derleme için gerekli paketler (better-sqlite3 ve bcrypt için)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 
+# Bağımlılıkları kopyala ve kur
+COPY relay-server/package*.json relay-server/tsconfig.json ./
+# npm ci yerine npm install (package-lock.json olmasa dahi sorunsuz kurar)
+RUN npm install
+
+# Kaynak kodları kopyala ve TypeScript derle
 COPY relay-server/src/ ./src/
 RUN npm run build
 
+# ==============================================================================
 # Çalışma Aşaması (Runner)
-FROM node:20-alpine AS runner
+# ==============================================================================
+FROM node:20-bookworm-slim AS runner
 
 WORKDIR /app
 
-COPY relay-server/package*.json ./
-RUN npm ci --only=production
+ENV NODE_ENV=production
+ENV PORT=8080
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY relay-server/package*.json ./
+RUN npm install --only=production
+
+# Builder aşamasından derlenmiş dist klasörünü al
 COPY --from=builder /app/dist ./dist
 
-# Veri ve Medya dizinlerini oluştur
+# Veritabanı ve Medya klasörlerini hazırla
 RUN mkdir -p /app/data /app/uploads
 
 EXPOSE 8080
-ENV NODE_ENV=production
-ENV PORT=8080
 
 CMD ["node", "dist/server.js"]
