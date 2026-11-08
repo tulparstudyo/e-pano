@@ -40,7 +40,7 @@ const deviceId = getDeviceId();
 console.log(`[Kiosk Engine] Cihaz ID: ${deviceId}`);
 
 let config = {
-  relayUrl: process.env.RELAY_WS_URL || 'ws://127.0.0.1:8080',
+  relayUrl: process.env.RELAY_WS_URL || 'wss://pano.teknovip.net',
   token: null,
   nightSleepEnabled: false,
   sleepHour: 22,
