@@ -3,14 +3,13 @@ version: '3.8'
 services:
   relay-hub:
     build:
-      context: ./relay-server
+      context: .
       dockerfile: Dockerfile
     container_name: epano-relay-hub
     restart: always
     env_file:
       - .env
     ports:
-      # Host makinedeki Nginx'in 127.0.0.1:8080 üzerinden proxy yapabilmesi için
       - "127.0.0.1:8080:8080"
     volumes:
       - ./data:/app/data
