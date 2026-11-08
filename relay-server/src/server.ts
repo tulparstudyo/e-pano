@@ -6,9 +6,9 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import cors from 'cors';
-import Database from 'better-sqlite3';
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
+import { JsonDatabase } from './db';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'pano-global-jwt-secret-key-2024';
 
@@ -22,57 +22,8 @@ const UPLOADS_DIR = path.join(__dirname, '../uploads');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
-// SQLite Veritabanı (WAL Modu)
-const db = new Database(path.join(DATA_DIR, 'pano.db'));
-db.pragma('journal_mode = WAL');
-
-// Çok Kurumlu (Multi-Tenant) Tablo Şeması
-db.exec(`
-  CREATE TABLE IF NOT EXISTS tenants (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    created_at INTEGER NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    role TEXT DEFAULT 'admin',
-    created_at INTEGER NOT NULL,
-    FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS devices (
-    device_id TEXT PRIMARY KEY,
-    tenant_id TEXT,
-    pairing_token TEXT UNIQUE,
-    name TEXT DEFAULT 'Giriş Panosu',
-    location TEXT DEFAULT 'Zemin Kat',
-    last_seen INTEGER,
-    created_at INTEGER,
-    FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE SET NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS device_contents (
-    device_id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL,
-    payload TEXT NOT NULL,
-    updated_at INTEGER NOT NULL,
-    FOREIGN KEY(device_id) REFERENCES devices(device_id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS device_telemetry (
-    device_id TEXT PRIMARY KEY,
-    cpu_usage REAL,
-    mem_free_mb INTEGER,
-    disk_free_gb REAL,
-    resolution TEXT,
-    uptime_sec INTEGER,
-    updated_at INTEGER
-  );
-`);
+// Güvenli ve Kalıcı Veritabanı (Zero-Dependency)
+const db = new JsonDatabase(DATA_DIR);
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
@@ -140,7 +91,7 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Kurum adı, e-posta ve şifre zorunludur.' });
   }
 
-  const existingUser = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+  const existingUser = db.findUserByEmail(email);
   if (existingUser) {
     return res.status(409).json({ error: 'Bu e-posta adresi zaten kayıtlı.' });
   }
@@ -150,14 +101,8 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
   const passwordHash = await bcrypt.hash(password, 10);
   const now = Date.now();
 
-  const insertTenant = db.prepare('INSERT INTO tenants (id, name, created_at) VALUES (?, ?, ?)');
-  const insertUser = db.prepare('INSERT INTO users (id, tenant_id, email, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?, ?)');
-
-  const tx = db.transaction(() => {
-    insertTenant.run(tenantId, institutionName, now);
-    insertUser.run(userId, tenantId, email, passwordHash, 'admin', now);
-  });
-  tx();
+  db.createTenant({ id: tenantId, name: institutionName, created_at: now });
+  db.createUser({ id: userId, tenant_id: tenantId, email, password_hash: passwordHash, role: 'admin', created_at: now });
 
   const token = jwt.sign({ userId, tenantId, email, role: 'admin' }, JWT_SECRET, { expiresIn: '30d' });
 
@@ -176,7 +121,7 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'E-posta ve şifre zorunludur.' });
   }
 
-  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as any;
+  const user = db.findUserByEmail(email);
   if (!user) {
     return res.status(401).json({ error: 'Hatalı e-posta veya şifre.' });
   }
@@ -186,7 +131,7 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Hatalı e-posta veya şifre.' });
   }
 
-  const tenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(user.tenant_id) as any;
+  const tenant = db.findTenantById(user.tenant_id);
   const token = jwt.sign(
     { userId: user.id, tenantId: user.tenant_id, email: user.email, role: user.role },
     JWT_SECRET,
@@ -197,16 +142,16 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
     success: true,
     token,
     user: { id: user.id, email: user.email, role: user.role },
-    tenant: { id: tenant.id, name: tenant.name }
+    tenant: { id: tenant?.id || user.tenant_id, name: tenant?.name || 'Kurum' }
   });
 });
 
 // Oturum Doğrulama (Me)
 app.get('/api/auth/me', authenticateJwt, (req: AuthenticatedRequest, res: Response) => {
-  const tenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(req.user!.tenantId) as any;
+  const tenant = db.findTenantById(req.user!.tenantId);
   res.json({
     user: req.user,
-    tenant: { id: tenant.id, name: tenant.name }
+    tenant: { id: tenant?.id || req.user!.tenantId, name: tenant?.name || 'Kurum' }
   });
 });
 
@@ -221,7 +166,7 @@ interface ActivePin {
 }
 const activePins = new Map<string, ActivePin>();
 const kioskSockets = new Map<string, WebSocket>();
-const tenantAdminSockets = new Map<string, Set<WebSocket>>(); // tenantId -> Set<WebSocket>
+const tenantAdminSockets = new Map<string, Set<WebSocket>>();
 
 function generateUniquePin(deviceId: string): string {
   let pin = '';
@@ -257,16 +202,15 @@ app.post('/api/pair', authenticateJwt, (req: AuthenticatedRequest, res: Response
   const pairingToken = crypto.randomBytes(32).toString('hex');
   const now = Date.now();
 
-  db.prepare(`
-    INSERT INTO devices (device_id, tenant_id, pairing_token, name, location, last_seen, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(device_id) DO UPDATE SET
-      tenant_id = excluded.tenant_id,
-      pairing_token = excluded.pairing_token,
-      name = coalesce(?, devices.name),
-      location = coalesce(?, devices.location),
-      last_seen = excluded.last_seen
-  `).run(entry.deviceId, tenantId, pairingToken, name || 'Yeni Pano', location || 'Giriş Kat', now, now, name, location);
+  db.upsertDevice({
+    device_id: entry.deviceId,
+    tenant_id: tenantId,
+    pairing_token: pairingToken,
+    name: name || 'Yeni Pano',
+    location: location || 'Giriş Kat',
+    last_seen: now,
+    created_at: now
+  });
 
   activePins.delete(cleanPin);
 
@@ -291,12 +235,12 @@ app.post('/api/pair', authenticateJwt, (req: AuthenticatedRequest, res: Response
 // Kuruma Ait Cihazları Listele
 app.get('/api/devices', authenticateJwt, (req: AuthenticatedRequest, res: Response) => {
   const tenantId = req.user!.tenantId;
-  const devices = db.prepare('SELECT * FROM devices WHERE tenant_id = ? ORDER BY created_at DESC').all(tenantId) as any[];
+  const devices = db.findDevicesByTenant(tenantId);
 
   const enriched = devices.map((d) => {
     const isOnline = kioskSockets.get(d.device_id)?.readyState === WebSocket.OPEN;
-    const telemetry = db.prepare('SELECT * FROM device_telemetry WHERE device_id = ?').get(d.device_id);
-    const content = db.prepare('SELECT updated_at FROM device_contents WHERE device_id = ?').get(d.device_id) as any;
+    const telemetry = db.getDeviceTelemetry(d.device_id);
+    const content = db.getDeviceContent(d.device_id);
     return {
       ...d,
       isOnline,
@@ -314,9 +258,7 @@ app.patch('/api/devices/:deviceId', authenticateJwt, (req: AuthenticatedRequest,
   const { name, location } = req.body;
   const tenantId = req.user!.tenantId;
 
-  db.prepare('UPDATE devices SET name = coalesce(?, name), location = coalesce(?, location) WHERE device_id = ? AND tenant_id = ?')
-    .run(name, location, deviceId, tenantId);
-
+  db.updateDeviceMeta(deviceId, tenantId, name, location);
   res.json({ success: true });
 });
 
@@ -325,8 +267,7 @@ app.delete('/api/devices/:deviceId', authenticateJwt, (req: AuthenticatedRequest
   const { deviceId } = req.params;
   const tenantId = req.user!.tenantId;
 
-  db.prepare('DELETE FROM devices WHERE device_id = ? AND tenant_id = ?').run(deviceId, tenantId);
-  db.prepare('DELETE FROM device_contents WHERE device_id = ? AND tenant_id = ?').run(deviceId, tenantId);
+  db.deleteDevice(deviceId, tenantId);
 
   const ws = kioskSockets.get(deviceId);
   if (ws && ws.readyState === WebSocket.OPEN) {
@@ -341,7 +282,7 @@ app.post('/api/emergency', authenticateJwt, (req: AuthenticatedRequest, res: Res
   const { active, title, message } = req.body;
   const tenantId = req.user!.tenantId;
 
-  const devices = db.prepare('SELECT device_id FROM devices WHERE tenant_id = ?').all(tenantId) as any[];
+  const devices = db.findDevicesByTenant(tenantId);
   const alertPayload = {
     type: 'EMERGENCY_ALERT',
     active: Boolean(active),
@@ -385,15 +326,15 @@ wss.on('connection', (ws: WebSocket) => {
           role = 'KIOSK';
           kioskSockets.set(deviceId, ws);
 
-          const row = db.prepare('SELECT tenant_id, pairing_token FROM devices WHERE device_id = ?').get(deviceId) as any;
+          const row = db.findDeviceById(deviceId);
 
           if (row && row.tenant_id && token && row.pairing_token === token) {
             boundTenantId = row.tenant_id;
-            db.prepare('UPDATE devices SET last_seen = ? WHERE device_id = ?').run(Date.now(), deviceId);
+            db.updateDeviceLastSeen(deviceId, Date.now());
             ws.send(JSON.stringify({ type: 'STATUS', paired: true }));
 
             // Varsa son içeriği doğrudan panoya ilet
-            const lastContent = db.prepare('SELECT payload FROM device_contents WHERE device_id = ?').get(deviceId) as any;
+            const lastContent = db.getDeviceContent(deviceId);
             if (lastContent && lastContent.payload) {
               ws.send(JSON.stringify({
                 type: 'UPDATE_CONTENT',
@@ -422,17 +363,15 @@ wss.on('connection', (ws: WebSocket) => {
           if (role !== 'KIOSK' || !boundDeviceId) return;
           const { cpuUsage, memFreeMb, diskFreeGb, resolution, uptimeSec } = msg;
 
-          db.prepare(`
-            INSERT INTO device_telemetry (device_id, cpu_usage, mem_free_mb, disk_free_gb, resolution, uptime_sec, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(device_id) DO UPDATE SET
-              cpu_usage = excluded.cpu_usage,
-              mem_free_mb = excluded.mem_free_mb,
-              disk_free_gb = excluded.disk_free_gb,
-              resolution = excluded.resolution,
-              uptime_sec = excluded.uptime_sec,
-              updated_at = excluded.updated_at
-          `).run(boundDeviceId, cpuUsage, memFreeMb, diskFreeGb, resolution, uptimeSec, Date.now());
+          db.upsertDeviceTelemetry({
+            device_id: boundDeviceId,
+            cpu_usage: cpuUsage,
+            mem_free_mb: memFreeMb,
+            disk_free_gb: diskFreeGb,
+            resolution: resolution || '1920x1080',
+            uptime_sec: uptimeSec,
+            updated_at: Date.now()
+          });
           break;
         }
 
@@ -471,26 +410,29 @@ wss.on('connection', (ws: WebSocket) => {
           const now = Date.now();
           const jsonStr = JSON.stringify(payload);
 
-          const upsert = db.prepare(`
-            INSERT INTO device_contents (device_id, tenant_id, payload, updated_at)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(device_id) DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at
-          `);
-
           if (broadcastAll) {
-            const tenantDevices = db.prepare('SELECT device_id FROM devices WHERE tenant_id = ?').all(boundTenantId) as any[];
+            const tenantDevices = db.findDevicesByTenant(boundTenantId);
             tenantDevices.forEach((d) => {
-              upsert.run(d.device_id, boundTenantId, jsonStr, now);
+              db.upsertDeviceContent({
+                device_id: d.device_id,
+                tenant_id: boundTenantId!,
+                payload: jsonStr,
+                updated_at: now
+              });
               const targetKiosk = kioskSockets.get(d.device_id);
               if (targetKiosk && targetKiosk.readyState === WebSocket.OPEN) {
                 targetKiosk.send(JSON.stringify({ type: 'UPDATE_CONTENT', payload, timestamp: now }));
               }
             });
           } else if (targetDeviceId) {
-            // Cihazın bu kuruma ait olduğunu doğrula
-            const dev = db.prepare('SELECT device_id FROM devices WHERE device_id = ? AND tenant_id = ?').get(targetDeviceId, boundTenantId);
-            if (dev) {
-              upsert.run(targetDeviceId, boundTenantId, jsonStr, now);
+            const dev = db.findDeviceById(targetDeviceId);
+            if (dev && dev.tenant_id === boundTenantId) {
+              db.upsertDeviceContent({
+                device_id: targetDeviceId,
+                tenant_id: boundTenantId,
+                payload: jsonStr,
+                updated_at: now
+              });
               const targetKiosk = kioskSockets.get(targetDeviceId);
               if (targetKiosk && targetKiosk.readyState === WebSocket.OPEN) {
                 targetKiosk.send(JSON.stringify({ type: 'UPDATE_CONTENT', payload, timestamp: now }));
@@ -526,5 +468,5 @@ wss.on('connection', (ws: WebSocket) => {
 
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
-  console.log(`[Relay Hub Multi-Tenant + SQLite] Port ${PORT} üzerinde hazır.`);
+  console.log(`[Relay Hub Multi-Tenant] Port ${PORT} uzerinde hazir ve dinlemede.`);
 });
