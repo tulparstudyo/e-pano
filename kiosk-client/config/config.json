@@ -1,6 +1,6 @@
 {
   "relayUrl": "wss://pano.teknovip.net",
-  "token": null,
+  "token": "c78bf603dd7abd116c0041d46bd28e5a08075c9eb72b64b96e35a2e3d9341ad5",
   "nightSleepEnabled": false,
   "sleepHour": 22,
   "wakeHour": 7
